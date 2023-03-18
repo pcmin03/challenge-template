@@ -1,0 +1,47 @@
+_target_ : src.data.rsna_datamodule.MMGDataModule
+dataset :
+  _target_: dataset.mmgdataset.MMGDataset
+  data_dir : /opt/rsna/data/new_data_info.csv
+  fold : 1
+  aux_classes: 
+  - 'site_id' 
+  - 'laterality'
+  - 'view'
+  - 'implant'
+  - 'biopsy'
+  - 'invasive'
+  - 'BIRADS'
+  - 'density'
+  - 'difficult_negative_case'
+  - 'machine_id'
+  - 'age'
+  aux_label:
+  - 2
+  - 2
+  - 6
+  - 2
+  - 2
+  - 2
+  - 4
+  - 5
+  - 2
+  - 10
+  - 10
+  mode: None
+  augmentation: True
+  resize_shape : 
+  - 512
+  - 512
+  
+loader:
+  _target_: torch.utils.data.DataLoader
+  _recursive_: False
+  batch_size: 100
+  num_workers: 4
+  pin_memory: True
+  prefetch_factor: 4
+  persistent_workers: True
+
+sampler: 
+  _target_: dataset.mmgdataset.BalanceSampler
+  ratio : 3

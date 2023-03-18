@@ -1,0 +1,27 @@
+_target_: src.models.rsna_module.RSNAModule
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _recursive_: True
+  lr: 4e-4
+  weight_decay: 0.024
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  epochs: ${trainer.max_epochs}
+  max_lr : 4e-5
+
+net:
+  _target_: src.models.components.net.BreastCancerModel
+  aux_label : ${data.dataset.aux_label}
+  model_type: seresnext50_32x4d
+  dropout : 0
+  pretrained : True
+
+# loss : 
+#   cancer_loss:
+#       _target_: torch.nn.BCEWithLogitsLoss
+  
+#   loss_weights: 
+#     - 1
+#     - 10

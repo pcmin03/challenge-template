@@ -1,3 +1,46 @@
+GPUtil
+SimpleITK
+accelerate
+albumentations
+black
+cryptography
+einops
+fairscale
+flake8
+h5py
+hydra-core
+hydra-optuna-sweeper
+indexed-gzip  # Faster decompression in Nibabel.
+ipywidgets
+iterative-stratification
+joblib
+jupyterlab
+matplotlib
+mkl
+wandb
+monai==1.0.*
+nibabel
+numpy
+omegaconf
+opencv-python-headless
+openpyxl  # Read `.xlsx` files in Pandas.
+pandas
+pydicom
+pylint
+pymongo==3.10.1
+pytest
+openmim
+rich
+scikit-image
+scikit-learn
+scipy
+seaborn
+tensorboard
+torchinfo
+tqdm
+setuptools==59.5.0
+timm
+
 # --------- pytorch --------- #
 torch>=1.10.0
 torchvision>=0.11.0
