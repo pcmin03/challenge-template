@@ -12,7 +12,7 @@ from src.utils.asl_utils import read_json_file
 from sklearn.model_selection import StratifiedGroupKFold
 from src.data.components.sign_dataset import ASLDataFrameDataset
 import pandas as pd
-
+import hydra
 class ASLDataModule(LightningDataModule):
 
     def __init__(
@@ -23,10 +23,10 @@ class ASLDataModule(LightningDataModule):
         val_fold : int = 0,
         test_fold : int = 1,
         loader : DictConfig=None,
+        preprocess : DictConfig=None,
     ):
         super().__init__()
         csv_path = Path(csv_path)
-        npy_path = Path(npy_path)
         abs_path = csv_path.parent
 
         df = pd.read_csv(str(csv_path))
@@ -49,21 +49,18 @@ class ASLDataModule(LightningDataModule):
         self.train_df = df[~df['fold'].isin([val_fold,test_fold])].reset_index(drop=True)
         self.valid_df = df[df['fold'].isin([val_fold])].reset_index(drop=True)
         self.test_df = df[df['fold'].isin([test_fold])].reset_index(drop=True)
-
+        self.npy_path = Path(npy_path)
         self.label_map = label_map
         self.save_hyperparameters(logger=False)
         
-        # load dataframe 
-        self.prepare_data(npy_path)
-        
     @property
     def num_classes(self):
-        return len(label_map)
+        return len(self.label_map)
 
-    def prepare_data(self, npy_path):
+    def prepare_data(self):
         
-        npy_data = npy_path/'feature_data.npy'
-        npy_label = npy_path/'feature_labels.npy'
+        npy_data = self.npy_path/'feature_data.npy'
+        npy_label = self.npy_path/'feature_labels.npy'
         
         if npy_data.exists() and npy_label.exists():
             self.npy_data = np.load(npy_data)

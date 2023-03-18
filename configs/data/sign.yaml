@@ -1,7 +1,7 @@
 _target_ : src.data.sign_datamodule.ASLDataModule
-csv_path : /opt/rsna/data/sign_data/asl-signs/train.csv
-json_path : /opt/rsna/data/sign_data/asl-signs/sign_to_prediction_index_map.json
-npy_path : /opt/rsna/data/sign_data/
+csv_path : /opt/sign/data/sign_data/asl-signs/train.csv
+json_path : /opt/sign/data/sign_data/asl-signs/sign_to_prediction_index_map.json
+npy_path : /opt/sign/data/sign_data/
 val_fold : 0 
 test_fold : 1
 loader:

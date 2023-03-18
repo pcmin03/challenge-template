@@ -55,17 +55,3 @@ def read_json_file(file_path):
         # Raise an error if the file does not contain valid JSON data
         raise ValueError(f"Invalid JSON data in file: {file_path}")
         
-def get_sign_df(pq_path, invert_y=True):
-    sign_df = pd.read_parquet(pq_path)
-    
-    # y value is inverted (Thanks @danielpeshkov)
-    if invert_y: sign_df["y"] *= -1 
-        
-    return sign_df
-
-def load_relevant_data_subset(pq_path):
-    data_columns = ['x', 'y', 'z']
-    data = pd.read_parquet(pq_path, columns=data_columns)
-    n_frames = int(len(data) / ROWS_PER_FRAME)
-    data = data.values.reshape(n_frames, ROWS_PER_FRAME, len(data_columns))
-    return data.astype(np.float32)

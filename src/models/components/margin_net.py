@@ -1,6 +1,7 @@
 # From https://github.com/lyakaap/Landmark2019-1st-and-3rd-Place-Solution/blob/master/src/modeling/metric_learning.py
 # Added type annotations, device, and 16bit support
 from torch import nn
+import torch
 
 class ASLLinearModel(torch.nn.Module):
     def __init__(

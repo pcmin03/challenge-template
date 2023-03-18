@@ -138,8 +138,7 @@ class ASLModule(LightningModule):
         """
         optimizer = self.hparams.optimizer(params=self.parameters())
         if self.hparams.scheduler is not None:
-            scheduler = self.hparams.scheduler(optimizer=optimizer,
-                                                len(self.hparams.train_loader),)
+            scheduler = self.hparams.scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {

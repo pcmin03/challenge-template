@@ -4,4 +4,5 @@ services:
       - /team/team_blu3/:/team/team_blu3
       - /localdata1:/localdata1
       - /home/cmpark/test_code/challege_code:/home/cmpark/test_code/challege_code
+      - /home/cmpark:/home/cmpark
       - /home/cmpark/project:/home/cmpark/project
