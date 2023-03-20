@@ -16,7 +16,7 @@ tags: ["asl_sign"]
 
 seed: 42
 
-desc: "transformer_60_lips_Ranger_fold0"
+desc: "transformer_60_length_512_lips_Ranger_fold0_random_split"
 experiment_uuid: ${uuid:}
 experiment_name: exp_${experiment_uuid}_${desc}
 
@@ -24,16 +24,29 @@ experiment_name: exp_${experiment_uuid}_${desc}
 trainer:
   log_every_n_steps: 1
   check_val_every_n_epoch: 1
+  precision: 32
   min_epochs: 0
   max_epochs: 200
   devices:
   - 0
   - 1
-  - 2
-  - 3
 
 data:
-  batch_size: 64
+  batch_size: 256
+  dataset_cfg:
+    fold_type: hwc
+    val_fold: 0.0
+    max_length: 512
+    random: True
+
+model:
+  net:
+    num_blocks: 1
+    num_classes: 250
+    num_head: 4
+    embed_dim: 512
+    max_length: ${data.dataset_cfg.max_length}
+    num_point: 82
   
 
 logger:

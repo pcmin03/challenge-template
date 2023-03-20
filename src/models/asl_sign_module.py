@@ -59,7 +59,7 @@ class ASLModule(pl.LightningModule):
                 "scheduler": scheduler,
                 "interval": "epoch",
             },
-        }
+        } if scheduler else {"optimizer": optimizer,} 
 
     def _init_optimizer(self):
         opt_lower = self.hparams.optimizer.opt_name.lower()
@@ -96,7 +96,7 @@ class ASLModule(pl.LightningModule):
                 gamma=0.95,
             )
         else:
-            raise ValueError(f"Unknown scheduler: {self.hparams.scheduler}")
+            scheduler = None
         return scheduler
 
     def forward(self, x):

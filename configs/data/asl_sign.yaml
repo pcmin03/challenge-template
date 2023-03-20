@@ -11,3 +11,4 @@ dataset_cfg:
   fold_type: christ
   val_fold: 0.0
   max_length: 60
+  random: False

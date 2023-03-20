@@ -1,6 +1,6 @@
 import json
 import pandas as pd
-from sklearn.model_selection import StratifiedGroupKFold
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 import numpy as np
 
 import torch
@@ -60,12 +60,14 @@ def read_json_file(file_path):
         # Raise an error if the file does not contain valid JSON data
         raise ValueError(f"Invalid JSON data in file: {file_path}")
         
-def read_kaggle_csv_by_part(num_fold=5, TRAIN_FILE=None, SIGN_TO_IDX=None):
+def read_kaggle_csv_by_part(num_fold=5, TRAIN_FILE=None, SIGN_TO_IDX=None, random=False):
     kaggle_df = pd.read_csv(TRAIN_FILE)
     kaggle_df.loc[:, 'label'] = kaggle_df.sign.map(SIGN_TO_IDX)
     kaggle_df.loc[:, 'fold' ] = -1
-
-    sgkf = StratifiedGroupKFold(n_splits=num_fold, random_state=42, shuffle=True)
+    if random:
+        sgkf = StratifiedKFold(n_splits=num_fold, random_state=42, shuffle=True)
+    else:
+        sgkf = StratifiedGroupKFold(n_splits=num_fold, random_state=42, shuffle=True)
     for i, (train_index, valid_index) in enumerate(sgkf.split(kaggle_df.path, kaggle_df.label, kaggle_df.participant_id)):
         kaggle_df.loc[valid_index,'fold'] = i
 

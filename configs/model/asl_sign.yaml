@@ -5,12 +5,13 @@ optimizer:
   weight_decay: 1e-6
   learning_rate: 1e-4
 
+# scheduler: 
+#   sch_name: CosineAnnealingLR
+#   eta_min: 1e-6
+#   max_epochs: ${trainer.max_epochs}
+
 scheduler: 
-  sch_name: CosineAnnealingLR
-  eta_min: 1e-6
-  max_epochs: 200
-
-
+  sch_name: Constant
 
 net:
   _target_: src.models.components.transformer.Net
@@ -18,7 +19,7 @@ net:
   num_classes: 250
   num_head: 4
   embed_dim: 512
-  max_length: 60 
+  max_length: ${data.dataset_cfg.max_length}
   num_point: 82
 
 
