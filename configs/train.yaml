@@ -4,11 +4,11 @@
 # order of defaults determines the order in which configs override each other
 defaults:
   - _self_
-  - data: sign.yaml
-  - model: sign.yaml
+  - data: asl_sign.yaml
+  - model: asl_sign.yaml
   - callbacks: default.yaml
   - logger: wandb.yaml # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
-  - trainer: default.yaml
+  - trainer: ddp.yaml
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml

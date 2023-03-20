@@ -7,7 +7,7 @@ from omegaconf import DictConfig
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import Logger
 
-pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+pyrootutils.setup_root(__file__, indicator="setup.py", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
 # the setup_root above is equivalent to:
 # - adding project root dir to PYTHONPATH
@@ -116,4 +116,9 @@ def main(cfg: DictConfig) -> Optional[float]:
 
 
 if __name__ == "__main__":
+    from omegaconf import OmegaConf
+    import uuid
+    
+    OmegaConf.register_resolver("uuid", lambda: uuid.uuid4().hex[-8:])
     main()
+    

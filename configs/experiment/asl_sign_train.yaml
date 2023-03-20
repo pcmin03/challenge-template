@@ -1,0 +1,43 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /data: asl_sign.yaml
+  - override /model: asl_sign.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: ddp.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["asl_sign"]
+
+seed: 42
+
+desc: "transformer_60_lips_Ranger_fold0"
+experiment_uuid: ${uuid:}
+experiment_name: exp_${experiment_uuid}_${desc}
+
+
+trainer:
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  min_epochs: 0
+  max_epochs: 200
+  devices:
+  - 0
+  - 1
+  - 2
+  - 3
+
+data:
+  batch_size: 64
+  
+
+logger:
+  wandb:
+    project: asl-sign-detection-kaggle
+    name: ${experiment_name}
+
