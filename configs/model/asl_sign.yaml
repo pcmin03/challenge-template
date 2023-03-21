@@ -11,7 +11,7 @@ optimizer:
 #   max_epochs: ${trainer.max_epochs}
 
 scheduler: 
-  sch_name: Constant
+  sch_name: lr_Constant
 
 net:
   _target_: src.models.components.transformer.Net

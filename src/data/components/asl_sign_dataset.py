@@ -6,7 +6,7 @@ from utils.asl_utils import read_kaggle_csv_by_part, read_christ_csv_by_part, lo
 
 class ASLDataset(Dataset):
     def __init__(self, mode, train_path, pr_train_path, json_path, num_fold, 
-                 fold_type, val_fold, max_length, random, transform=None):
+                 fold_type, val_fold, max_length, random, use_feature, transform=None):
         self.mode = mode
         self.train_file = train_path
         self.pr_train_file = pr_train_path
@@ -17,6 +17,7 @@ class ASLDataset(Dataset):
         self.transform = transform
         self.max_length = max_length
         self.random  = random
+        self.use_feature = use_feature
         self.meta_df = self.get_meta_df()
         
     def get_meta_df(self):
@@ -65,17 +66,19 @@ class ASLDataset(Dataset):
     def __getitem__(self, idx):
 
         elem = self.meta_df.iloc[idx]
-    
-        pq_path = elem.path
-        xyz = load_relevant_data_subset(f'/opt/sign/{pq_path}')
-        xyz = xyz - xyz[~np.isnan(xyz)].mean(0,keepdims=True) #noramlisation to common maen
-        xyz = xyz / xyz[~np.isnan(xyz)].std(0, keepdims=True)
-        
-        if self.transform is not None and self.mode=='train':
-            xyz = self.transform(xyz)
+        if self.use_feature:
+            xyz = torch.from_numpy(np.load(elem.feature_npy_path))
+        else:
+            pq_path = elem.path
+            xyz = load_relevant_data_subset(f'/opt/sign/challenge-template/data/{pq_path}')
+            xyz = xyz - xyz[~np.isnan(xyz)].mean(0,keepdims=True) #noramlisation to common maen
+            xyz = xyz / xyz[~np.isnan(xyz)].std(0, keepdims=True)
+            
+            if self.transform is not None and self.mode=='train':
+                xyz = self.transform(xyz)
 
-        xyz = torch.from_numpy(xyz).float()
-        xyz = self.pre_process(xyz)
+            xyz = torch.from_numpy(xyz).float()
+            xyz = self.pre_process(xyz)
 
         data = {}
         data['index'] = idx

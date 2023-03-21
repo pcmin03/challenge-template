@@ -13,6 +13,7 @@ class ASLDataModule(pl.LightningDataModule):
         batch_size: int,
         num_workers: int,
         pin_memory: bool,
+        persistent_workers: bool,
         dataset_cfg: dict,
     ):
         super().__init__()
@@ -23,6 +24,7 @@ class ASLDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.persistent_workers = persistent_workers
         self.train_transform, self.val_transform = self._init_transforms()
         
         self.dataset_cfg = dataset_cfg
@@ -49,6 +51,7 @@ class ASLDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            persistent_workers=self.persistent_workers,
             drop_last=train,
             worker_init_fn=lambda id: np.random.seed(torch.initial_seed() // 2 ** 32 + id),
             collate_fn=null_collate,
