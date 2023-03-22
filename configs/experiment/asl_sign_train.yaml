@@ -33,7 +33,7 @@ data:
   persistent_workers: True
   dataset_cfg:
     fold_type: hwc
-    val_fold: 1.0
+    val_fold: 3.0
     max_length: 512
     random: False
     use_feature: False

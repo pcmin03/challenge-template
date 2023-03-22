@@ -13,6 +13,7 @@ Acc_checkpoint:
   mode: "max"
   save_last: False
   auto_insert_metric_name: False
+  save_weights_only: True
 
 Loss_checkpoint:
   dirpath: ${paths.output_dir}/checkpoints
@@ -22,7 +23,8 @@ Loss_checkpoint:
   mode: "min"
   save_last: False
   auto_insert_metric_name: False
-
+  save_weights_only: True
+  
 early_stopping:
   monitor: "val_acc"
   patience: 20
