@@ -19,7 +19,7 @@ seed: 42
 trainer:
   log_every_n_steps: 1
   check_val_every_n_epoch: 1
-  precision: 16
+  precision: 32
   min_epochs: 0
   max_epochs: 200
   devices:
@@ -33,23 +33,25 @@ data:
   persistent_workers: True
   dataset_cfg:
     fold_type: hwc
-    val_fold: 3.0
-    max_length: 512
+    val_fold: 0.0
+    max_length: 384
     random: False
     use_feature: False
+    offset: True
+    transform: True
 
 model:
   net:
     num_blocks: 1
     num_classes: 250
     num_head: 4
-    embed_dim: 512
+    embed_dim: 384
     max_length: ${data.dataset_cfg.max_length}
-    num_point: 82
+    point_dim: 960
   
 
 
-desc: "transformer_length_${data.dataset_cfg.max_length}_${model.scheduler.sch_name}_${data.dataset_cfg.fold_type}_random_${data.dataset_cfg.random}_fold${data.dataset_cfg.val_fold}"
+desc: "transformer_len_${data.dataset_cfg.max_length}_pd_${data.dataset_cfg.point_dim}_${data.dataset_cfg.fold_type}_random_${data.dataset_cfg.random}_fold${data.dataset_cfg.val_fold}"
 experiment_uuid: ${uuid:}
 experiment_name: exp_${experiment_uuid}_${desc}
 

@@ -20,6 +20,6 @@ net:
   num_head: 4
   embed_dim: 512
   max_length: ${data.dataset_cfg.max_length}
-  num_point: 82
+  point_dim: 960
 
 

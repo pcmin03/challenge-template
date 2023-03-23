@@ -65,14 +65,14 @@ def pack_seq(
     K = seq[0].shape[1]
     L = max(length)
 
-    x = torch.zeros((batch_size, L, K, 3)).to(seq[0].device)
+    x = torch.zeros((batch_size, L, K)).to(seq[0].device)
     x_mask = torch.zeros((batch_size, L)).to(seq[0].device)
     for b in range(batch_size):
         l = length[b]
         x[b, :l] = seq[b][:l]
         x_mask[b, l:] = 1
     x_mask = (x_mask>0.5)
-    x = x.reshape(batch_size,-1,K*3)
+    x = x.reshape(batch_size,-1,K)
     return x, x_mask
 
 class TransformerBlock(nn.Module):
@@ -101,7 +101,7 @@ class Net(nn.Module):
                 num_head: 4,
                 embed_dim: 512,
                 max_length: 60, 
-                num_point: 82):
+                point_dim: 960):
         super().__init__()
         self.output_type = ['inference', 'loss']
         self.max_length = max_length
@@ -111,9 +111,14 @@ class Net(nn.Module):
 
         self.cls_embed = nn.Parameter(torch.zeros((1, embed_dim)))
         self.x_embed = nn.Sequential(
-            nn.Linear(num_point * 3, embed_dim, bias=False),
+            nn.Linear(point_dim, embed_dim*2, bias=True),
+            nn.LayerNorm(embed_dim * 2),
+            nn.ReLU(inplace=True),
+            nn.Linear(embed_dim*2, embed_dim, bias=True),
+            nn.LayerNorm(embed_dim),
+            nn.ReLU(inplace=True)
         )
-
+    
         self.encoder = nn.ModuleList([
             TransformerBlock(
                 embed_dim,
@@ -124,7 +129,7 @@ class Net(nn.Module):
         self.logit = nn.Linear(embed_dim, num_classes)
 
     def forward(self, batch):
-        # B, L, F
+        # L, F
         xyz = batch['xyz']
         # B, L
         x, x_mask = pack_seq(xyz, max_length=self.max_length)

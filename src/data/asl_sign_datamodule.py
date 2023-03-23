@@ -25,19 +25,14 @@ class ASLDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
-        self.train_transform, self.val_transform = self._init_transforms()
+        
         
         self.dataset_cfg = dataset_cfg
     
-    def _init_transforms(self):
-        train_transform = None
-        val_transform = None
-
-        return train_transform, val_transform
 
     def setup(self, stage=None):
-        self.train_dataset = ASLDataset(**self.dataset_cfg, mode='train', transform=self.train_transform)
-        self.val_dataset = ASLDataset(**self.dataset_cfg, mode='val', transform=self.val_transform)
+        self.train_dataset = ASLDataset(**self.dataset_cfg, mode='train')
+        self.val_dataset = ASLDataset(**self.dataset_cfg, mode='val')
     def train_dataloader(self):
         return self._dataloader(self.train_dataset, train=True)
 

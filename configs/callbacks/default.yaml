@@ -1,5 +1,6 @@
 defaults:
   - total_checkpoint.yaml
+  - swa.yaml
   - early_stopping.yaml
   - model_summary.yaml
   - rich_progress_bar.yaml
