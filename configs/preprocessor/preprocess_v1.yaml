@@ -1,0 +1,7 @@
+_target_: src.preprocessor.preprocess.asl_preprocessor
+
+pre_cfg:
+  INPUT_SIZE: ${data.dataset_cfg.INPUT_SIZE}
+  N_COLS: 92
+  LIPS_START: 0
+  MEAN_STD: ${paths.data_dir}/preprocessed_npy/all_mean_std.npy

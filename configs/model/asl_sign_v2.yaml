@@ -1,0 +1,24 @@
+_target_: src.models.asl_sign_module_v2.ASLModule
+
+optimizer:
+  opt_name: adamw
+  weight_decay: 1e-3
+  learning_rate: 1e-5
+
+scheduler: 
+  sch_name: lr_Constant
+
+net:
+  _target_: src.models.components.transformer_v2.Transformer
+  INPUT_SIZE: ${data.dataset_cfg.INPUT_SIZE}
+  num_blocks: 2
+  LIPS_UNITS: 384
+  HANDS_UNITS: 384
+  POSE_UNITS: 384
+  UNITS: 384
+  NUM_CLASSES: ${data.dataset_cfg.num_classes}
+  LAYER_NORM_EPS: 1e-6
+  NUM_OF_HEADS: 8
+  MLP_RATIO: 2
+  MLP_DROPOUT_RATIO: 0.3
+  CLASSIFIER_DROPOUT_RATIO: 0.1

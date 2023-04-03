@@ -1,0 +1,15 @@
+_target_: src.data.asl_sign_datamodule_v2.ASLDataModule_v2
+
+SEED: 42
+train_batch_size: 1000
+val_batch_size: 256
+num_workers: 1
+pin_memory: False
+persistent_workers: False
+dataset_cfg:
+  train_path: ${paths.data_dir}/csv/train.csv
+  num_classes: 250
+  preprocess: False
+  INPUT_SIZE: 32
+  n_dims: 3
+  
