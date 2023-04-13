@@ -6,11 +6,11 @@ from typing import Any, Dict, Optional, Tuple
 
 import torch
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split, WeightedRandomSampler
 from omegaconf import DictConfig
 from src.utils.asl_utils import read_json_file
 from sklearn.model_selection import StratifiedGroupKFold
-from src.data.components.sign_dataset import ASLDataFrameDataset
+from src.data.components.sign_dataset import ASLDataNPYDataset
 import pandas as pd
 import hydra
 class ASLDataModule(LightningDataModule):
@@ -20,8 +20,9 @@ class ASLDataModule(LightningDataModule):
         csv_path : str = '/opt/rsna/data/sign_data/asl-signs/train.csv',
         json_path : str = '/opt/rsna/data/sign_data/asl-signs/sign_to_prediction_index_map.json',
         npy_path : str = '/opt/rsna/data/sign_data/',
-        npy_name: str = 'small_feature_data.npy',
-        lab_name: str = 'small_feature_labels.npy',
+        npy_name: str = 'X.npy',
+        lab_name: str = 'y.npy',
+        non_emp_name : str = 'NON_EMPTY_FRAME_IDXS.npy',
         val_fold : int = 0,
         test_fold : int = 1,
         batch_size : int = 100,
@@ -33,6 +34,7 @@ class ASLDataModule(LightningDataModule):
 
         df = pd.read_csv(str(csv_path))
         label_map = read_json_file(json_path)
+
 
         # sign to heatmap
         df['label'] = df['sign'].map(label_map)
@@ -47,9 +49,10 @@ class ASLDataModule(LightningDataModule):
         df['abs_path'] = df['abs_path'].map(str)
 
         # make train, valid, test dataframe
-        self.train_df = df[~df['fold'].isin([val_fold,test_fold])].reset_index(drop=True)
-        self.valid_df = df[df['fold'].isin([val_fold])].reset_index(drop=True)
-        self.test_df = df[df['fold'].isin([test_fold])].reset_index(drop=True)
+        self.train_df = df[~df['fold'].isin([val_fold,test_fold])]
+        self.valid_df = df[df['fold'].isin([val_fold])]
+        self.test_df = df[df['fold'].isin([test_fold])]
+
         self.npy_path = Path(npy_path)
         self.label_map = label_map
         self.save_hyperparameters(logger=False)
@@ -62,9 +65,12 @@ class ASLDataModule(LightningDataModule):
         
         npy_data = self.npy_path/self.hparams.npy_name
         npy_label = self.npy_path/self.hparams.lab_name
+        non_emp_lab = self.npy_path/self.hparams.non_emp_name
+
         if npy_data.exists() and npy_label.exists():
             self.npy_data = np.load(npy_data)
             self.npy_label = np.load(npy_label)
+            self.non_empty_frame = np.load(non_emp_lab)
         else:
             pass
             #TODO : make npy file function
@@ -76,11 +82,26 @@ class ASLDataModule(LightningDataModule):
         This method is called by lightning with both `trainer.fit()` and `trainer.test()`, so be
         careful not to execute things like random split twice!
         """
-        # load and split datasets only if not loaded already
-        self.data_train = ASLDataFrameDataset(self.train_df, self.npy_data, self.npy_label)
-        self.data_val = ASLDataFrameDataset(self.valid_df, self.npy_data, self.npy_label)
-        self.data_test = ASLDataFrameDataset(self.test_df, self.npy_data, self.npy_label)
+        train_idxs = np.array(self.train_df.index)
+        valid_idxs = np.array(self.valid_df.index)
+        test_idxs = np.array(self.test_df.index)
 
+        # load and split datasets only if not loaded already
+        self.data_train = ASLDataNPYDataset(self.npy_data[train_idxs], self.npy_label[train_idxs], self.non_empty_frame[train_idxs])
+        self.data_val = ASLDataNPYDataset(self.npy_data[valid_idxs], self.npy_label[valid_idxs], self.non_empty_frame[valid_idxs])
+        self.data_test = ASLDataNPYDataset(self.npy_data[test_idxs], self.npy_label[test_idxs], self.non_empty_frame[test_idxs])
+
+        CLASS2IDXS_train = {}
+        for i in range(250):
+            CLASS2IDXS_train[i] = np.argwhere(self.npy_label[train_idxs] == i).squeeze().astype(np.int32)
+            
+        class_weights = {i:1/len(CLASS2IDXS_train[i]) for i in range(250)}
+        samples_weight = np.array([class_weights[t] for t in self.npy_label[train_idxs]])
+        samples_weight = torch.from_numpy(samples_weight)
+        
+        ## train dataset용
+        self.sampler = WeightedRandomSampler(weights=torch.DoubleTensor(samples_weight), num_samples=len(samples_weight), replacement=True)
+        
     def train_dataloader(self):
         self.train_loader =  DataLoader(dataset=self.data_train,
                                         batch_size=self.hparams.batch_size,

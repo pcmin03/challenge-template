@@ -14,10 +14,11 @@ scheduler:
   patience: 10
 
 net:
-  _target_: src.models.components.margin_net.ASLLinearModel
+  _target_: src.models.components.aman_transformer_v2.Transformer
   _recursive_: True
-  in_features: 472
-  first_out_features: 1024
+  num_blocks: 2
+  mlp_ratio : 2
+  mlp_dropout_ratio : 0.3
+  units: 384
   num_classes: 250
-  num_blocks: 3
-  drop_rate: 0.4
+  input_size : 32

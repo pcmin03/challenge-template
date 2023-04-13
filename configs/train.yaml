@@ -5,10 +5,10 @@
 defaults:
   - _self_
   - data: sign.yaml
-  - model: sign.yaml
+  - model: arcface.yaml
   - callbacks: default.yaml
   - logger: wandb.yaml # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
-  - trainer: default.yaml
+  - trainer: gpu.yaml
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml

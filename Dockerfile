@@ -161,7 +161,7 @@ RUN groupadd -g ${GID} ${GRP} && \
     echo "${USR} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     usermod -aG sudo ${USR}
 
-ARG PROJECT_ROOT=/opt/lct
+ARG PROJECT_ROOT=/opt/sign
 ENV PATH=${PROJECT_ROOT}:/opt/conda/bin:$PATH
 ENV PYTHONPATH=${PROJECT_ROOT}
 COPY --link --chown=${UID}:${GID} --from=train-builds /opt/conda /opt/conda

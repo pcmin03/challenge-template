@@ -1,80 +1,86 @@
-import tensorflow as tf
 import torch
+import numpy as np 
+import torch.nn.functional as F
+from torch import nn 
 
-def right_hand_percentage(x, right_hand_landmarks, left_hand_landmarks):
-    right = tf.gather(x, right_hand_landmarks, axis=1)
-    left = tf.gather(x, left_hand_landmarks, axis=1)
-    right_count = tf.reduce_sum(tf.where(tf.math.is_nan(right), tf.zeros_like(right), tf.ones_like(right)))
-    left_count = tf.reduce_sum(tf.where(tf.math.is_nan(left), tf.zeros_like(left), tf.ones_like(left)))
-    return right_count / (left_count+right_count)
+def torch_nan_mean(x, axis=0):
+    return torch.nansum(torch.where(torch.isnan(x), torch.zeros_like(x), x), dim=axis) / \
+                torch.nansum(torch.where(torch.isnan(x), torch.zeros_like(x), torch.ones_like(x)), dim=axis)
 
-def tf_nan_mean(x, axis=0):
-    return tf.reduce_sum(tf.where(tf.math.is_nan(x), tf.zeros_like(x), x), axis=axis) / tf.reduce_sum(tf.where(tf.math.is_nan(x), tf.zeros_like(x), tf.ones_like(x)), axis=axis)
+def torch_nan_std(x, axis=0):
+    d = x - torch_nan_mean(x, axis=axis)
+    return torch.sqrt(torch_nan_mean(d * d, axis=axis))
 
-def tf_nan_std(x, axis=0):
-    d = x - tf_nan_mean(x, axis=axis)
-    return tf.math.sqrt(tf_nan_mean(d * d, axis=axis))
-
-def flatten_means_and_stds(x, reshape_size, axis=0):
+def torch_flatten_means_and_stds(x, reshape_size, axis=0):
     # Get means and stds
-    x_mean = tf_nan_mean(x, axis=0)
-    x_std  = tf_nan_std(x,  axis=0)
+    x_mean = torch_nan_mean(x, axis=axis)
+    x_std  = torch_nan_std(x,  axis=axis)
 
-    x_out = tf.concat([x_mean, x_std], axis=0)
-    x_out = tf.reshape(x_out, (1, reshape_size[1]*2))
-    x_out = tf.where(tf.math.is_finite(x_out), x_out, tf.zeros_like(x_out))
+    x_out = torch.cat([x_mean, x_std], 0)
+    if x_out.shape[0] > 168:
+        x_out = x_out[:168,:]
+    x_out = x_out.reshape((1, reshape_size[1]*2))
+    x_out = torch.where(torch.isfinite(x_out), x_out, torch.zeros_like(x_out))
     return x_out
 
-class TFFeatureGen(tf.keras.layers.Layer):
-    def __init__(self):
+class FeatureGen(nn.Module):
+    def __init__(self, landmarks, point_landmarks, avg_set):
         super(FeatureGen, self).__init__()
-    
-    def call(self, x_in, segment, point_landmarks, reshape_size):
+        self.landmarks = landmarks
+        self.point_landmarks = point_landmarks
+        self.avg_set = avg_set
+
+    def forward(self, x_in, num_frames, segments, input_shape):
 #         print(right_hand_percentage(x))
-        x_list = [tf.expand_dims(tf_nan_mean(x_in[:, av_set[0]:av_set[0]+av_set[1], :], axis=1), axis=1) for av_set in averaging_sets]
-        x_list.append(tf.gather(x_in, point_landmarks, axis=1))
-        x = tf.concat(x_list, 1)
-
-        x_padded = x
-        for i in range(segment):
-            p0 = tf.where( ((tf.shape(x_padded)[0] % segment) > 0) & ((i % 2) != 0) , 1, 0)
-            p1 = tf.where( ((tf.shape(x_padded)[0] % segment) > 0) & ((i % 2) == 0) , 1, 0)
-            paddings = [[p0, p1], [0, 0], [0, 0]]
-            x_padded = tf.pad(x_padded, paddings, mode="SYMMETRIC")
-        x_list = tf.split(x_padded, segment)
-        x_list = [flatten_means_and_stds(_x, reshape_size, axis=0) for _x in x_list]
-
-        x_list.append(flatten_means_and_stds(x, reshape_size, axis=0))
         
-        ## Resize only dimension 0. Resize can't handle nan, so replace nan with that dimension's avg value to reduce impact.
-        x = tf.image.resize(tf.where(tf.math.is_finite(x), x, tf_nan_mean(x, axis=0)), [NUM_FRAMES, LANDMARKS])
-        x = tf.reshape(x, (1, reshape_size[0]*reshape_size[1]))
-        x = tf.where(tf.math.is_nan(x), tf.zeros_like(x), x)
+        x_list = [torch.mean(x_in[:, av_set[0]:av_set[0]+av_set[1], :], dim=1, keepdim=True) for av_set in self.avg_set]
+        x_list.append(torch.index_select(x_in, dim=1, index=torch.tensor(self.point_landmarks)))
+        x = torch.cat(x_list, dim=1)
+        x_padded = x.numpy()
+        for i in range(segments):
+            p0 = 1 if (x_padded.shape[0] % segments) > 0 and i % 2 != 0 else 0
+            p1 = 1 if (x_padded.shape[0] % segments) > 0 and i % 2 == 0 else 0
+            paddings = [(0, 0), (p0, p1), (0, 0)]
+            x_padded = np.pad(x_padded, paddings, mode="symmetric")
+        x_list = torch.tensor_split(torch.tensor(x_padded), segments)
+        x_list = [torch_flatten_means_and_stds(_x, input_shape, axis=0) for _x in x_list]
+        x_list.append(torch_flatten_means_and_stds(x, input_shape, axis=0))
+        torch_x = torch.where(torch.isfinite(x), x, torch.mean(x[torch.isfinite(x)], dim=0, keepdim=True))
+        x = x.permute(2, 0, 1)
+        x = F.interpolate(x.unsqueeze(0), size=[num_frames, self.landmarks], mode='bilinear')
+        x = x.squeeze(0).permute(1, 2, 0)
+        x = torch.reshape(x, (1, input_shape[0]*input_shape[1]))
+        x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
         x_list.append(x)
-        x = tf.concat(x_list, axis=1)
+        x = torch.cat(x_list, dim=1)
         return x
 
-class TorchFeatureGen(nn.Module):
-    def __init__(self):
-        super(TorchFeatureGen, self).__init__()
-        pass
-    
+class SimpleFeatureGen(nn.Module):
+    def __init__(self,drop:bool=True):
+        super(SimpleFeatureGen, self).__init__()
+
+        lipsUpperOuter =  [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291]
+        lipsLowerOuter = [146, 91, 181, 84, 17, 314, 405, 321, 375, 291]
+        lipsUpperInner = [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308]
+        lipsLowerInner = [78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308]
+        self.lips = lipsUpperOuter + lipsLowerOuter + lipsUpperInner + lipsLowerInner
+        self.dim = 2 if drop else 3
     def forward(self, x):
-        
-        face_x = x[:,:468,:].contiguous().view(-1, 468*3)
-        lefth_x = x[:,468:489,:].contiguous().view(-1, 21*3)
-        pose_x = x[:,489:522,:].contiguous().view(-1, 33*3)
-        righth_x = x[:,522:,:].contiguous().view(-1, 21*3)
+        x = x[:,:,:self.dim]
+        lips_x = x[:,self.lips,:].contiguous().view(-1, 43*self.dim)
+        lefth_x = x[:,468:489,:].contiguous().view(-1, 21*self.dim)
+        pose_x = x[:,489:522,:].contiguous().view(-1, 33*self.dim)
+        righth_x = x[:,522:,:].contiguous().view(-1, 21*self.dim)
         
         lefth_x = lefth_x[~torch.any(torch.isnan(lefth_x), dim=1),:]
         righth_x = righth_x[~torch.any(torch.isnan(righth_x), dim=1),:]
         
-        x1m = torch.mean(face_x, 0)
+        x1m = torch.mean(lips_x, 0)
         x2m = torch.mean(lefth_x, 0)
         x3m = torch.mean(pose_x, 0)
         x4m = torch.mean(righth_x, 0)
 
-        x1s = torch.std(face_x, 0)
+        x1s = torch.std(lips_x, 0)
         x2s = torch.std(lefth_x, 0)
         x3s = torch.std(pose_x, 0)
         x4s = torch.std(righth_x, 0)

@@ -12,7 +12,7 @@ class ASLLinearModel(torch.nn.Module):
         num_blocks: int,
         drop_rate: float,
     ):
-        super().__init__()
+        super(ASLLinearModel, self).__init__()
 
         blocks = []
         out_features = first_out_features

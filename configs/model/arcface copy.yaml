@@ -7,17 +7,19 @@ optimizer:
   weight_decay: 0.0
 
 scheduler:
-  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-  _partial_: true
+  name : CosineAnnealingLR
   mode: min
   factor: 0.1
   patience: 10
-
+  max_epochs : ${trainer.max_epochs}
+  eta_min : 1e-6
+  
 net:
-  _target_: src.models.components.margin_net.ASLLinearModel
+  _target_: src.models.components.arcfacenet.Model
   _recursive_: True
   in_features: 472
-  first_out_features: 1024
   num_classes: 250
-  num_blocks: 3
-  drop_rate: 0.4
+  scale: 30
+  margin: 0.5
+  drop_rate: 0.2
+  use_arcface: true

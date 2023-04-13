@@ -3,10 +3,11 @@ from typing import List, Optional, Tuple
 import hydra
 import pyrootutils
 import pytorch_lightning as pl
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import Logger
 
+import torch
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
 # the setup_root above is equivalent to:
@@ -91,6 +92,21 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
             ckpt_path = None
         trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
         log.info(f"Best ckpt path: {ckpt_path}")
+
+    if cfg.get("onnx"): 
+        trainer.to_onnx(
+        file_path=cfg.paths.log_dir+'als_module.onnx',
+        input_sample=torch.rand((1, cfg.model.net.num_classes)).cuda(),
+        opset_version=12,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "input"}},
+        )
+        tf_model_path = "tf_model"
+        # onnx_asl_module = onnx.load(cfg.paths.log_dir+'als_module.onnx')
+        # tf_rep = prepare(onnx_asl_module)
+        # tf_rep.export_graph(tf_model_path)
+
 
     test_metrics = trainer.callback_metrics
 

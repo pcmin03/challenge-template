@@ -1,0 +1,16 @@
+_target_: src.data.asl_sign_datamodule.ASLDataModule
+
+batch_size: 64
+num_workers: 1
+pin_memory: False
+persistent_workers: False
+dataset_cfg:
+  train_path: ${paths.data_dir}/data/sign_data/asl-signs/train.csv
+  pr_train_path: ${paths.data_dir}/data/sign_data/asl-signs/train_prepared.csv
+  json_path: ${paths.data_dir}data/sign_data/asl-signs/sign_to_prediction_index_map.json
+  num_fold: 5
+  fold_type: hwc
+  val_fold: 0.0
+  max_length: 60
+  random: False
+  use_feature: False

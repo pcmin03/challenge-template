@@ -1,11 +1,14 @@
 from typing import Any, List
 
 import torch
+import torch.nn.functional as F
 from pytorch_lightning import LightningModule, LightningDataModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics import AUROC
+from torchmetrics import AUROC, F1Score
 from torchmetrics import MetricCollection
+from omegaconf import DictConfig
+from timm.optim import create_optimizer_v2
 
 class ASLModule(LightningModule):
     """Example of LightningModule for MNIST classification.
@@ -33,98 +36,75 @@ class ASLModule(LightningModule):
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False)
-
         self.net = net
-
         # loss function
         self.criterion = torch.nn.CrossEntropyLoss()
+        self.arc_loss = torch.nn.CrossEntropyLoss()
+        self._init_metrics()
 
     def _init_metrics(self):
         # metric objects for calculating and averaging accuracy across batches
         metrics = {
-            "acc": Accuracy(task='multiclass',num_classes=self.hparams.net.num_classes)
+            "acc": Accuracy(task='multiclass',num_classes=250),
+            "f1": F1Score(task='multiclass',num_classes=250),
+            "arc_acc": Accuracy(task='multiclass',num_classes=250),
         }
-
         metric_collection = MetricCollection(metrics)
-        self.metric = torch.nn.ModuleDict(
+        self.metrics = torch.nn.ModuleDict(
                 {
                     "train_metrics": metric_collection.clone(prefix="train_"),
-                    "val_metrics": metric_collection.clone(prefix="val_"),
+                    "valid_metrics": metric_collection.clone(prefix="val_"),
+                    "test_metrics": metric_collection.clone(prefix="test_"),
+                    "train_arc_metrics": metric_collection.clone(prefix="train_"),
+                    "valid_arc_metrics": metric_collection.clone(prefix="val_"),
+                    "test_arc_metrics": metric_collection.clone(prefix="test_"),
                 }
             )
-        # for averaging loss across batches
-        self.train_loss = MeanMetric()
-        self.val_loss = MeanMetric()
-        self.test_loss = MeanMetric()
+    def _init_losses(self,): 
+        pass
 
-        # for tracking best so far validation accuracy
-        self.val_acc_best = MaxMetric()
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        return self.net(x, y)
+    
+    def _forward_pass(self, batch):
+        x, y = batch
+        y = y.view(-1)
+        y_pred = self(x,y)
 
-    def forward(self, x: torch.Tensor):
-        return self.net(x)
+        return x, y, y_pred
 
-    def on_train_start(self):
-        # by default lightning executes validation step sanity checks before training starts,
-        # so we need to make sure val_acc_best doesn't store accuracy from these checks
-        self.val_acc_best.reset()
+    def _shared_step(self, batch: Any, stage: str):
+        x, y, y_pred = self._forward_pass(batch)
 
-    def shared_step(self, batch: Any, stage: str):
-        x, y, aux_true = batch['img'],batch['label'],batch['aux']
-        # meta val
-        preds, aux_pred, features = self.forward(x)
+        loss = self.criterion(y_pred[0].float(), y.long())
+        arcface_loss = self.criterion(y_pred[1].float(), y.long())
+        loss = 0.5 * loss + 0.5 * arcface_loss
+
+        self.metrics[f"{stage}_metrics"](y_pred[0].float(), y.long())
+        self.metrics[f"{stage}_arc_metrics"](y_pred[1].float(), y.long())
+        self.log(f"{stage}_loss", loss, batch_size=len(x))
+        self.log_dict(self.metrics[f"{stage}_metrics"], batch_size=len(x))
         
-        preds = F.sigmoid(preds)
-        loss = self.loss(preds,y.float())
-        self.metrics[f"{stage}_metrics"](y_pred, y)
-        cls_names = self.cfg.dataset.data.aux_classes
-
-        return loss, preds, y
+        return loss, y_pred, y
 
     def training_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.shared_step(batch, 'train')
-
-        # update and log metrics
-        self.train_loss(loss)
-        self.train_acc(preds, targets)
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        # we can return here dict with any tensors
-        # and then read it in some callback or in `training_epoch_end()` below
-        # remember to always return loss from `training_step()` or backpropagation will fail!
-        return {"loss": loss, "preds": preds, "targets": targets}
+        # print(print(dir(self.trainer)))
+        loss, preds, targets = self._shared_step(batch, 'train')
+        return loss
 
     def training_epoch_end(self, outputs: List[Any]):
         pass
 
     def validation_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.shared_step(batch, 'valid')
-
-        # update and log metrics
-        self.val_loss(loss)
-        self.val_acc(preds, targets)
-        self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return {"loss": loss, "preds": preds, "targets": targets}
+        loss, preds, targets = self._shared_step(batch, 'valid')
+        return loss
 
     def validation_epoch_end(self, outputs: List[Any]):
-        acc = self.val_acc.compute()  # get current val acc
-        self.val_acc_best(acc)  # update best so far val acc
-        # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
-        # otherwise metric would be reset by lightning after each epoch
-        self.log("val/acc_best", self.val_acc_best.compute(), prog_bar=True)
-
+        pass
+        
     def test_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.model_step(batch)
-
-        # update and log metrics
-        self.test_loss(loss)
-        self.test_acc(preds, targets)
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", self.test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return {"loss": loss, "preds": preds, "targets": targets}
+        loss, preds, targets = self._shared_step(batch, 'test')
+        return loss
 
     def test_epoch_end(self, outputs: List[Any]):
         pass
@@ -138,18 +118,64 @@ class ASLModule(LightningModule):
         """
         optimizer = self.hparams.optimizer(params=self.parameters())
         if self.hparams.scheduler is not None:
-            scheduler = self.hparams.scheduler(optimizer=optimizer)
+            scheduler = self._init_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {
                     "scheduler": scheduler,
-                    "monitor": "val/loss",
                     "interval": "epoch",
-                    "frequency": 1,
+                    "monitor": "valid_loss"
                 },
             }
         return {"optimizer": optimizer}
 
+    def _init_scheduler(self, optimizer):
+        if self.hparams.scheduler.name == "CosineAnnealingLR":
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=self.hparams.scheduler.max_epochs,
+                eta_min=self.hparams.scheduler.eta_min,
+            )
+        elif self.hparams.scheduler.name == "StepLR":
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer,
+                step_size=self.hparams.scheduler.max_epochs // 5,
+                gamma=0.95,
+            )
+        elif self.hparams.scheduler.name == "ReduceLROnPlateau":
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode="min",
+                factor=self.hparams.scheduler.factor,
+                patience=self.hparams.scheduler.patience,
+                verbose=False,
+            )
+        else:
+            raise ValueError(f"Unknown scheduler: {self.hparams.scheduler.name}")
+        return scheduler
 
-if __name__ == "__main__":
-    _ = RSNAModule(None, None, None)
+
+    # def _init_optimizer(self):
+    #     return create_optimizer_v2(
+    #         self.parameters(),
+    #         opt=self.hparams.optimizer,
+    #         lr=self.hparams.learning_rate,
+    #         weight_decay=self.hparams.weight_decay,
+    #     )
+
+    # def _init_scheduler(self, optimizer):
+    #     if self.hparams.scheduler == "CosineAnnealingLR":
+    #         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    #             optimizer,
+    #             T_max=self.hparams.max_epochs,
+    #             eta_min=self.hparams.eta_min,
+    #         )
+    #     elif self.hparams.scheduler == "StepLR":
+    #         scheduler = torch.optim.lr_scheduler.StepLR(
+    #             optimizer,
+    #             step_size=self.hparams.max_epochs // 5,
+    #             gamma=0.95,
+    #         )
+    #     else:
+    #         raise ValueError(f"Unknown scheduler: {self.hparams.scheduler}")
+    #     return scheduler
